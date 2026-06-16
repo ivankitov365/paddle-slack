@@ -8,7 +8,9 @@ export default async function handler(req, res) {
       "Unknown Product";
 
     const currency =
-      payload.details?.totals?.currency_code || payload.currency_code || "";
+      payload.details?.totals?.currency_code ||
+      payload.currency_code ||
+      "";
 
     const amountPaid = (
       Number(payload.details?.totals?.grand_total || 0) / 100
@@ -37,19 +39,34 @@ export default async function handler(req, res) {
     const totalEarningsCurrency =
       payload.details?.payout_totals?.currency_code || "USD";
 
-    const card = payload.payments?.[0]?.method_details?.card;
+    const methodDetails =
+      payload.payments?.[0]?.method_details;
 
-    const paymentType = card?.type?.toUpperCase() || "Unknown";
+    let paymentType = "Unknown";
+    let name = "Unknown";
 
-    const name = card?.cardholder_name || "Unknown";
+    if (methodDetails?.type === "card" && methodDetails.card) {
+      paymentType =
+        methodDetails.card.type?.toUpperCase() || "Card";
+      name =
+        methodDetails.card.cardholder_name || "Unknown";
+    }
 
-    const slackResponse = await fetch(process.env.SLACK_WEBHOOK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        text: `🎉 *New Paddle Sale*
+    if (methodDetails?.type === "paypal" && methodDetails.paypal) {
+      paymentType = "PayPal";
+      name =
+        methodDetails.paypal.email || "Unknown";
+    }
+
+    const slackResponse = await fetch(
+      process.env.SLACK_WEBHOOK_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: `🎉 *New Paddle Sale*
 
 📦 *Product:* ${product}
 
@@ -65,8 +82,9 @@ export default async function handler(req, res) {
 👤 *Name:* ${name}
 
 🆔 *Transaction:* ${payload.id}`
-      })
-    });
+        })
+      }
+    );
 
     const slackText = await slackResponse.text();
 
@@ -75,6 +93,7 @@ export default async function handler(req, res) {
       slack_status: slackResponse.status,
       slack_response: slackText
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
