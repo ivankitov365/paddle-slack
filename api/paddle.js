@@ -1,15 +1,17 @@
 export default async function handler(req, res) {
   try {
-    const payload = req.body;
+    const payload = req.body.data || req.body;
 
     const product =
-      payload.details?.line_items?.[0]?.product?.name || "Unknown Product";
+      payload.details?.line_items?.[0]?.product?.name ||
+      "Unknown Product";
 
     const amount = (
       Number(payload.details?.totals?.grand_total || 0) / 100
     ).toFixed(2);
 
-    const currency = payload.details?.totals?.currency_code || "";
+    const currency =
+      payload.details?.totals?.currency_code || "";
 
     const slackResponse = await fetch(process.env.SLACK_WEBHOOK_URL, {
       method: "POST",
@@ -29,16 +31,12 @@ export default async function handler(req, res) {
 
     const slackText = await slackResponse.text();
 
-    console.log("Slack status:", slackResponse.status);
-    console.log("Slack response:", slackText);
-
     return res.status(200).json({
       success: true,
       slack_status: slackResponse.status,
       slack_response: slackText
     });
   } catch (error) {
-    console.error("Error:", error);
     return res.status(500).json({
       success: false,
       error: error.message
